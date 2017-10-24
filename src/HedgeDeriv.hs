@@ -1,9 +1,10 @@
 module HedgeDeriv (
-    Pattern(..), Refs(..), Var(..), Name(..), reachable, newRef, union
+    Pattern(..), Refs(..), Var(..), Name(..), reachable, newRef, union, isLinear
 ) where
 
 import qualified Data.Map.Strict as DataMap
 import qualified Data.Set as DataSet
+import qualified Debug.Trace as Debug
 
 newtype Var = Var String -- x
     deriving (Show, Ord, Eq)
@@ -63,3 +64,22 @@ reachable refs (Or p1 p2) = DataSet.union (reachable refs p1) (reachable refs p2
 reachable refs (ZeroOrMore p) = reachable refs p
 reachable refs (Capture p x) = DataSet.singleton x `DataSet.union` (reachable refs p)
 
+isLinear :: Refs a -> Pattern a -> Bool
+isLinear refs EmptySet = True
+isLinear refs EmptyPattern = True
+isLinear refs (NodePattern _ name) = isLinear refs (lookupRef refs name)
+isLinear refs (Concat p1 p2) =
+    let vp1 = reachable refs p1
+        vp2 = reachable refs p2
+    in DataSet.null (vp1 `DataSet.intersection` vp2) && isLinear refs p1 && isLinear refs p2
+isLinear refs (Or p1 p2) =
+    let vp1 = reachable refs p1
+        vp2 = reachable refs p2
+    in ((debug vp1) == (debug vp2)) && isLinear refs p1 && isLinear refs p2
+isLinear refs (ZeroOrMore p1) = DataSet.null (reachable refs p1)
+isLinear refs (Capture p1 x) =
+    let vp1 = reachable refs p1
+    in (not $ DataSet.member x vp1) && isLinear refs p1
+
+debug :: (Show a) => a -> a
+debug v = Debug.trace (show v) v
