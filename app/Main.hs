@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+import HedgeDeriv
 
 main :: IO ()
-main = someFunc
+main = print "hello"
